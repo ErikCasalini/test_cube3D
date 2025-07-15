@@ -7,7 +7,7 @@
 #include <math.h>
 
 #define RES_X 1200
-#define RES_Y 1000
+#define RES_Y 1200
 
 #define FAILURE 1
 #define SUCCESS 0
@@ -20,8 +20,8 @@ typedef struct s_size
 
 typedef struct s_point
 {
-	float	x;
-	float	y;
+	double	x;
+	double	y;
 }				t_point;
 
 typedef struct s_image
@@ -45,8 +45,9 @@ typedef struct s_x_elements
 {
 	void		*display;
 	void		*win;
-	t_image		*minimap;
+	t_image		minimap;
 	// t_scene	*scene;
+	int			refresh;
 }				t_x_elements;
 
 typedef struct s_world
@@ -61,7 +62,7 @@ typedef struct s_world
 	int		floor_color;
 }				t_world;
 
-int	float_to_pixel(float world_point, int cell_size)
+int	double_to_pixel(double world_point, int cell_size)
 {
 	return (world_point * cell_size);
 }
@@ -146,24 +147,25 @@ void	init_world(t_world *world) //TEST
 	world->map = alloc_map();
 	world->map_x = 50;
 	world->map_y = 50;
-	world->player.x = 3.5;
+	world->player.x = 10.5;
 	world->orientation = 0;
-	world->player.y = 3.5;
+	world->player.y = 10.5;
 }
 
-int	init_minimap_image(t_world *world, t_image *image, void *display)
+int	init_minimap_image(t_world *world, t_x_elements *x_elem)
 {
-	image->cell_size = set_cell_size();
-	image->size = set_image_size(world, image->cell_size);
-	image->img = mlx_new_image(display, image->size.x, image->size.y);
-	if (image->img == NULL)
+	x_elem->minimap.cell_size = set_cell_size();
+	x_elem->minimap.size = set_image_size(world, x_elem->minimap.cell_size);
+	x_elem->minimap.img = mlx_new_image(x_elem->display, x_elem->minimap.size.x, x_elem->minimap.size.y);
+	if (x_elem->minimap.img == NULL)
 		return (FAILURE);
-	image->img_addr = mlx_get_data_addr(image->img, &image->bppixel, &image->line_len, &image->endian);
+	x_elem->minimap.img_addr = mlx_get_data_addr(x_elem->minimap.img, &x_elem->minimap.bppixel, &x_elem->minimap.line_len, &x_elem->minimap.endian);
 	return (SUCCESS);
 }
 
 int	x_init(t_x_elements *x_elem, t_world *world)
 {
+	x_elem->refresh = 1;
 	x_elem->display = mlx_init();
 	if (x_elem->display == NULL)
 		return (FAILURE);
@@ -173,7 +175,7 @@ int	x_init(t_x_elements *x_elem, t_world *world)
 		mlx_destroy_display(x_elem->display);
 		return (FAILURE);
 	}
-	if (init_minimap_image(world, x_elem->minimap, x_elem->display) == FAILURE)
+	if (init_minimap_image(world, x_elem) == FAILURE)
 	{
 		mlx_destroy_window(x_elem->display, x_elem->win);
 		mlx_destroy_display(x_elem->display);
@@ -257,15 +259,15 @@ void	draw_line(t_point start, t_point end, t_world *world, t_x_elements *x_elem)
 	int		delta_x;
 	int		delta_y;
 	int		steps;
-	float	x_direction;
-	float	y_direction;
-	float	x;
-	float	y;
+	double	x_direction;
+	double	y_direction;
+	double	x;
+	double	y;
 
-	start_x = float_to_pixel(start.x, x_elem->minimap->cell_size);
-	start_y = float_to_pixel(start.y, x_elem->minimap->cell_size);
-	end_x = float_to_pixel(end.x, x_elem->minimap->cell_size);
-	end_y = float_to_pixel(end.y, x_elem->minimap->cell_size);
+	start_x = double_to_pixel(start.x, x_elem->minimap.cell_size);
+	start_y = double_to_pixel(start.y, x_elem->minimap.cell_size);
+	end_x = double_to_pixel(end.x, x_elem->minimap.cell_size);
+	end_y = double_to_pixel(end.y, x_elem->minimap.cell_size);
 	// printf("start_x: %d start_y: %d | end_x: %d end_y: %d | offset_x: %f offset_y: %f\n", start_x, start_y, end_x, end_y, world->offest.x, world->offest.y);
 	delta_x = end_x - start_x;
 	delta_y = end_y - start_y;
@@ -275,8 +277,8 @@ void	draw_line(t_point start, t_point end, t_world *world, t_x_elements *x_elem)
 	else
 		steps = abs(delta_y);
 
-	x_direction = delta_x / (float)steps;
-	y_direction = delta_y / (float)steps;
+	x_direction = delta_x / (double)steps;
+	y_direction = delta_y / (double)steps;
 
 	x = start_x;
 	y = start_y;
@@ -284,8 +286,8 @@ void	draw_line(t_point start, t_point end, t_world *world, t_x_elements *x_elem)
 	{
 		mlx_pixel_put(x_elem->display,
 					x_elem->win,
-					(int)x + world->offest.x,
-					(int)y + world->offest.y,
+					(int)x + (int)world->offest.x,
+					(int)y + (int)world->offest.y,
 					0xffffff);
 		x += x_direction;
 		y += y_direction;
@@ -324,6 +326,7 @@ t_point	find_hit_pos(t_cast_ray_vars *vars, t_point player, t_side_hit side_hit)
 		wall_hit_dist = vars->dist_to_side_y - vars->delta_y_dist;
 	hit_pos.x = player.x + vars->ray_x_dir * wall_hit_dist;
 	hit_pos.y = player.y + vars->ray_y_dir * wall_hit_dist;
+	// printf("x hit: %d | y hit: %d\n", (int)hit_pos.x, (int)hit_pos.y);
 	return (hit_pos);
 }
 
@@ -386,8 +389,14 @@ t_point	cast_ray(t_world *world, double angle, int cell_size)
 	vars.ray_y_dir = -sin(angle);
 	/* FAUT PROTEGER SI JAMAIS ray_dir = 0 */
 	/* On détermine le delta de la distance parcourrue par le rayon en x et en y */
-	vars.delta_x_dist = fabs(1 / vars.ray_x_dir);
-	vars.delta_y_dist = fabs(1 / vars.ray_y_dir);
+	if (vars.ray_x_dir == 0)
+		vars.delta_x_dist = INFINITY;
+	else
+		vars.delta_x_dist = fabs(1 / vars.ray_x_dir);
+	if (vars.ray_y_dir == 0)
+		vars.delta_y_dist = INFINITY;
+	else
+		vars.delta_y_dist = fabs(1 / vars.ray_y_dir);
 	/* On détermine si la prochaine case traversée par le rayon est à droite/gauche/haut/bas (step),
 	ainsi que la distance que sépare le joueur du bord x/y le plus proche en suivant la direction du rayon */
 	set_next_cell_pos(&vars);
@@ -397,8 +406,8 @@ t_point	cast_ray(t_world *world, double angle, int cell_size)
 
 void	set_map_offset(t_world *world, t_image *image)
 {
-	world->offest.x = (RES_X / 2) - float_to_pixel(world->player.x, image->cell_size);
-	world->offest.y = (RES_Y / 2) - float_to_pixel(world->player.y, image->cell_size);
+	world->offest.x = (RES_X / 2) - double_to_pixel(world->player.x, image->cell_size);
+	world->offest.y = (RES_Y / 2) - double_to_pixel(world->player.y, image->cell_size);
 }
 
 void	draw_map(t_image *image, t_world *world) //TEST
@@ -490,7 +499,7 @@ t_point	set_left_camera_limit(int orientation, t_camera_direction direction)
 
 double	set_ray_angle(t_point camera_limit)
 {
-	return (cos(atan2(camera_limit.y - (RES_X / 2), camera_limit.x - (RES_X / 2))));
+	return (atan2(camera_limit.y - (RES_X / 2), camera_limit.x - (RES_X / 2)));
 }
 
 void	capture_scene(t_world *world, t_x_elements *x_elements)
@@ -513,7 +522,7 @@ void	capture_scene(t_world *world, t_x_elements *x_elements)
 			camera_limit = set_left_camera_limit(temp_orientation, direction);
 			ray_angle = set_ray_angle(camera_limit);
 			// printf("x: %f y: %f | direction: %u | angle: %lf\n", camera_limit.x, camera_limit.y, direction, ray_angle);
-			draw_line(world->player, cast_ray(world, ray_angle, x_elements->minimap->cell_size), world, x_elements);
+			draw_line(world->player, cast_ray(world, ray_angle, x_elements->minimap.cell_size), world, x_elements);
 			i++;
 			temp_orientation++;
 			if ((temp_orientation) % RES_X == 0)
@@ -531,20 +540,25 @@ int	update_minimap(t_hook_args *args) //TEST
 	// place_player(args->x_elem->minimap, args->world);
 	// erase_player(args->x_elem->minimap, args->world);
 	// place_player(args->x_elem->minimap, args->world);
-	// mlx_clear_window(args->x_elem->display, args->x_elem->win);
 	// draw_map(args->x_elem->minimap, args->world);
-	set_map_offset(args->world, args->x_elem->minimap);
-	mlx_put_image_to_window(args->x_elem->display,
-		args->x_elem->win,
-		args->x_elem->minimap->img,
-		args->world->offest.x,
-		args->world->offest.y);
-	mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2 + 1, RES_Y / 2, 0xff0000);
-	mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2 - 1, RES_Y / 2, 0xff0000);
-	mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2 + 1, 0xff0000);
-	mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2 - 1, 0xff0000);
-	mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2, 0xff0000);
-	capture_scene(args->world, args->x_elem);
+	if (args->x_elem->refresh)
+	{
+		set_map_offset(args->world, &args->x_elem->minimap);
+		mlx_clear_window(args->x_elem->display, args->x_elem->win);
+		mlx_put_image_to_window(args->x_elem->display,
+			args->x_elem->win,
+			args->x_elem->minimap.img,
+			args->world->offest.x,
+			args->world->offest.y);
+		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2 + 1, RES_Y / 2, 0xff0000);
+		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2 - 1, RES_Y / 2, 0xff0000);
+		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2 + 1, 0xff0000);
+		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2 - 1, 0xff0000);
+		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2, 0xff0000);
+		capture_scene(args->world, args->x_elem);
+		args->x_elem->refresh = 0;
+	}
+
 	// printf("Wall hit at: %f, %f\n", hit.x, hit.y);
 	// t_point hit = cast_ray(args->world, (2 / 3.14159265358979323846), args->x_elem->minimap->cell_size);
 	// draw_line(args->world->player, hit, args->world, args->x_elem);
@@ -585,7 +599,22 @@ int	key_hook(int keycode, t_hook_args *args) //TEST
 		// args->world->offest_y -= 0.1;
 		args->world->player.y += 0.3;
 	}
-	// fract->image.img_changed = 1;
+	if (keycode == XK_a)
+	{
+		if (args->world->orientation == 0)
+			args->world->orientation = (RES_X * 4) - 1;
+		else
+			args->world->orientation -= (RES_X / 10);
+	}
+	if (keycode == XK_d)
+	{
+		if (args->world->orientation == (RES_X * 4) - 1)
+			args->world->orientation = 0;
+		else
+			args->world->orientation += (RES_X / 10);
+	}
+	printf("orientation: %d\n", args->world->orientation);
+	args->x_elem->refresh = 1;
 	return (1);
 }
 
@@ -595,16 +624,18 @@ int	main(void) //TEST
 	t_world			world;
 	t_hook_args		hook_args;
 
+	x_elem = (t_x_elements){NULL};
+	world = (t_world){NULL};
 	init_world(&world);
 	x_init(&x_elem, &world);
 
-	set_map_offset(&world, x_elem.minimap);
+	set_map_offset(&world, &x_elem.minimap);
 
 	hook_args.world = &world;
 	hook_args.x_elem = &x_elem;
-	draw_map(x_elem.minimap, &world);
+	draw_map(&x_elem.minimap, &world);
 	mlx_key_hook(x_elem.win, key_hook, &hook_args);
-	capture_scene(&world, &x_elem);
+	// capture_scene(&world, &x_elem);
 	mlx_loop_hook(x_elem.display, update_minimap, &hook_args);
 	mlx_loop(x_elem.display);
 	// print_map(world.map);
