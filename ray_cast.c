@@ -6,15 +6,9 @@
 /*   By: ecasalin <ecasalin@42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/14 09:13:31 by ecasalin          #+#    #+#             */
-/*   Updated: 2025/07/14 09:16:05 by ecasalin         ###   ########.fr       */
+/*   Updated: 2025/07/14 09:27:23 by ecasalin         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
-
-typedef struct s_point
-{
-	float	x;
-	float	y;
-}				t_point;
 
 typedef enum e_side_hit
 {
