@@ -315,19 +315,25 @@ typedef struct s_cast_ray_vars
 	double	dist_to_side_y;
 }				t_cast_ray_vars;
 
-t_point	find_hit_pos(t_cast_ray_vars *vars, t_point player, t_side_hit side_hit)
+typedef struct s_wall_collision
 {
-	t_point	hit_pos;
-	double	wall_hit_dist;
+	t_side_hit	side_hit;
+	t_point		hit_pos;
+}				t_wall_collision;
+
+t_wall_collision	find_hit_pos(t_cast_ray_vars *vars, t_point player, t_side_hit side_hit)
+{
+	t_wall_collision	wall_collision;
+	double				wall_hit_dist;
 
 	if (side_hit == vertical)
 		wall_hit_dist = vars->dist_to_side_x - vars->delta_x_dist;
 	else
 		wall_hit_dist = vars->dist_to_side_y - vars->delta_y_dist;
-	hit_pos.x = player.x + vars->ray_x_dir * wall_hit_dist;
-	hit_pos.y = player.y + vars->ray_y_dir * wall_hit_dist;
-	// printf("x hit: %d | y hit: %d\n", (int)hit_pos.x, (int)hit_pos.y);
-	return (hit_pos);
+	wall_collision.hit_pos.x = player.x + vars->ray_x_dir * wall_hit_dist;
+	wall_collision.hit_pos.y = player.y + vars->ray_y_dir * wall_hit_dist;
+	wall_collision.side_hit = side_hit;
+	return (wall_collision);
 }
 
 void	set_next_cell_pos(t_cast_ray_vars *vars)
@@ -347,14 +353,14 @@ void	set_dist_from_next_side(t_cast_ray_vars *vars, t_world *world)
 	if (vars->ray_x_dir < 0)
 		vars->dist_to_side_x = (world->player.x - vars->cell_x) * vars->delta_x_dist;
 	else
-		vars->dist_to_side_x = (vars->cell_x + 1.0 - world->player.x) * vars->delta_x_dist;
+		vars->dist_to_side_x = (vars->cell_x + 1 - world->player.x) * vars->delta_x_dist;
 	if (vars->ray_y_dir < 0)
 		vars->dist_to_side_y = (world->player.y - vars->cell_y) * vars->delta_y_dist;
 	else
-		vars->dist_to_side_y = (vars->cell_y + 1.0 - world->player.y) * vars->delta_y_dist;
+		vars->dist_to_side_y = (vars->cell_y + 1 - world->player.y) * vars->delta_y_dist;
 }
 
-t_point	find_next_wall(t_cast_ray_vars *vars, t_world *world)
+t_wall_collision	find_next_wall(t_cast_ray_vars *vars, t_world *world)
 {
 	t_side_hit	side_hit;
 	/* En ajoutant delta_dist à dist_to_size on obtient à chaque fois la distance entre notre joueur et la prochaine ligne franchie */
@@ -378,7 +384,7 @@ t_point	find_next_wall(t_cast_ray_vars *vars, t_world *world)
 	return (find_hit_pos(vars, world->player, side_hit));
 }
 
-t_point	cast_ray(t_world *world, double angle, int cell_size)
+t_wall_collision	cast_ray(t_world *world, double angle, int cell_size)
 {
 	t_cast_ray_vars	vars;
 	/* On calcule la case de départ */
@@ -515,14 +521,14 @@ void	capture_scene(t_world *world, t_x_elements *x_elements)
 	while (i <= RES_X)
 	{
 		if (temp_orientation == RES_X * 4)
-			temp_orientation = 0;
+		temp_orientation = 0;
 		direction = set_camera_direction(temp_orientation);
 		while (i <= RES_X)
 		{
 			camera_limit = set_left_camera_limit(temp_orientation, direction);
 			ray_angle = set_ray_angle(camera_limit);
-			// printf("x: %f y: %f | direction: %u | angle: %lf\n", camera_limit.x, camera_limit.y, direction, ray_angle);
-			draw_line(world->player, cast_ray(world, ray_angle, x_elements->minimap.cell_size), world, x_elements);
+			printf("x: %f y: %f | direction: %u | angle: %f\n", camera_limit.x, camera_limit.y, direction, ray_angle);
+			draw_line(world->player, cast_ray(world, ray_angle, x_elements->minimap.cell_size).hit_pos, world, x_elements);
 			i++;
 			temp_orientation++;
 			if ((temp_orientation) % RES_X == 0)
