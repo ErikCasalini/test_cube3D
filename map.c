@@ -315,25 +315,25 @@ typedef struct s_cast_ray_vars
 	double	dist_to_side_y;
 }				t_cast_ray_vars;
 
-typedef struct s_wall_collision
+typedef struct s_ray_cast
 {
 	t_side_hit	side_hit;
 	t_point		hit_pos;
-}				t_wall_collision;
+	double		ray_len;
+}				t_ray_cast;
 
-t_wall_collision	find_hit_pos(t_cast_ray_vars *vars, t_point player, t_side_hit side_hit)
+t_ray_cast	find_hit_pos(t_cast_ray_vars *vars, t_point player, t_side_hit side_hit)
 {
-	t_wall_collision	wall_collision;
-	double				wall_hit_dist;
+	t_ray_cast	ray_cast;
 
 	if (side_hit == vertical)
-		wall_hit_dist = vars->dist_to_side_x - vars->delta_x_dist;
+		ray_cast.ray_len = vars->dist_to_side_x - vars->delta_x_dist;
 	else
-		wall_hit_dist = vars->dist_to_side_y - vars->delta_y_dist;
-	wall_collision.hit_pos.x = player.x + vars->ray_x_dir * wall_hit_dist;
-	wall_collision.hit_pos.y = player.y + vars->ray_y_dir * wall_hit_dist;
-	wall_collision.side_hit = side_hit;
-	return (wall_collision);
+		ray_cast.ray_len = vars->dist_to_side_y - vars->delta_y_dist;
+	ray_cast.hit_pos.x = player.x + vars->ray_x_dir * ray_cast.ray_len;
+	ray_cast.hit_pos.y = player.y + vars->ray_y_dir * ray_cast.ray_len;
+	ray_cast.side_hit = side_hit;
+	return (ray_cast);
 }
 
 void	set_next_cell_pos(t_cast_ray_vars *vars)
@@ -360,7 +360,7 @@ void	set_dist_from_next_side(t_cast_ray_vars *vars, t_world *world)
 		vars->dist_to_side_y = (vars->cell_y + 1 - world->player.y) * vars->delta_y_dist;
 }
 
-t_wall_collision	find_next_wall(t_cast_ray_vars *vars, t_world *world)
+t_ray_cast	find_next_wall(t_cast_ray_vars *vars, t_world *world)
 {
 	t_side_hit	side_hit;
 	/* En ajoutant delta_dist à dist_to_size on obtient à chaque fois la distance entre notre joueur et la prochaine ligne franchie */
@@ -384,7 +384,7 @@ t_wall_collision	find_next_wall(t_cast_ray_vars *vars, t_world *world)
 	return (find_hit_pos(vars, world->player, side_hit));
 }
 
-t_wall_collision	cast_ray(t_world *world, double angle, int cell_size)
+t_ray_cast	cast_ray(t_world *world, double angle, int cell_size)
 {
 	t_cast_ray_vars	vars;
 	/* On calcule la case de départ */
