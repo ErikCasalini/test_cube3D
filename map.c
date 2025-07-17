@@ -33,7 +33,17 @@ typedef struct s_minimap
 	int		endian;
 	t_size	size;
 	int		cell_size;
-}			t_minimap;
+}				t_minimap;
+
+typedef struct s_scene
+{
+	void	*img;
+	char	*img_addr;
+	int		bppixel;
+	int		line_len;
+	int		endian;
+	t_size	size;
+}				t_scene;
 
 typedef struct s_wall
 {
@@ -45,8 +55,8 @@ typedef struct s_x_elements
 {
 	void		*display;
 	void		*win;
-	t_minimap		minimap;
-	// t_scene	*scene;
+	t_minimap	minimap;
+	t_scene		scene;
 	int			refresh;
 }				t_x_elements;
 
@@ -163,6 +173,16 @@ int	init_minimap_image(t_world *world, t_x_elements *x_elem)
 	return (SUCCESS);
 }
 
+int	init_scene_image(t_world *world, t_x_elements *x_elem)
+{
+	x_elem->scene.size = (t_size){RES_X, RES_Y};
+	x_elem->scene.img = mlx_new_image(x_elem->display, x_elem->scene.size.x, x_elem->scene.size.y);
+	if (x_elem->scene.img == NULL)
+		return (FAILURE);
+	x_elem->scene.img_addr = mlx_get_data_addr(x_elem->scene.img, &x_elem->scene.bppixel, &x_elem->scene.line_len, &x_elem->scene.endian);
+	return (SUCCESS);
+}
+
 int	x_init(t_x_elements *x_elem, t_world *world)
 {
 	x_elem->refresh = 1;
@@ -177,6 +197,13 @@ int	x_init(t_x_elements *x_elem, t_world *world)
 	}
 	if (init_minimap_image(world, x_elem) == FAILURE)
 	{
+		mlx_destroy_window(x_elem->display, x_elem->win);
+		mlx_destroy_display(x_elem->display);
+		return (FAILURE);
+	}
+	if (init_scene_image(world, x_elem) == FAILURE)
+	{
+		mlx_destroy_image(x_elem->display, x_elem->minimap.img);
 		mlx_destroy_window(x_elem->display, x_elem->win);
 		mlx_destroy_display(x_elem->display);
 		return (FAILURE);
