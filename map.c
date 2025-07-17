@@ -24,7 +24,7 @@ typedef struct s_point
 	double	y;
 }				t_point;
 
-typedef struct s_image
+typedef struct s_minimap
 {
 	void	*img;
 	char	*img_addr;
@@ -33,7 +33,7 @@ typedef struct s_image
 	int		endian;
 	t_size	size;
 	int		cell_size;
-}			t_image;
+}			t_minimap;
 
 typedef struct s_wall
 {
@@ -45,7 +45,7 @@ typedef struct s_x_elements
 {
 	void		*display;
 	void		*win;
-	t_image		minimap;
+	t_minimap		minimap;
 	// t_scene	*scene;
 	int			refresh;
 }				t_x_elements;
@@ -67,11 +67,11 @@ int	double_to_pixel(double world_point, int cell_size)
 	return (world_point * cell_size);
 }
 
-void	xy_pixel_put(t_image *image, int x, int y, int color)
+void	xy_pixel_put(t_minimap *minimap, int x, int y, int color)
 {
 	char	*pixel_pos;
 
-	pixel_pos = image->img_addr + (y * image->line_len + x * (image->bppixel / 8));
+	pixel_pos = minimap->img_addr + (y * minimap->line_len + x * (minimap->bppixel / 8));
 	*(int *)pixel_pos = color;
 }
 
@@ -88,13 +88,13 @@ int	set_cell_size()
 	return (cell_size);
 }
 
-t_size	set_image_size(t_world *world, int cell_size)
+t_size	set_minimap_size(t_world *world, int cell_size)
 {
-	t_size	image_size;
+	t_size	minimap_size;
 
-	image_size.x = world->map_x * cell_size;
-	image_size.y = world->map_y * cell_size;
-	return (image_size);
+	minimap_size.x = world->map_x * cell_size;
+	minimap_size.y = world->map_y * cell_size;
+	return (minimap_size);
 }
 
 char **alloc_map(void) //TEST
@@ -155,7 +155,7 @@ void	init_world(t_world *world) //TEST
 int	init_minimap_image(t_world *world, t_x_elements *x_elem)
 {
 	x_elem->minimap.cell_size = set_cell_size();
-	x_elem->minimap.size = set_image_size(world, x_elem->minimap.cell_size);
+	x_elem->minimap.size = set_minimap_size(world, x_elem->minimap.cell_size);
 	x_elem->minimap.img = mlx_new_image(x_elem->display, x_elem->minimap.size.x, x_elem->minimap.size.y);
 	if (x_elem->minimap.img == NULL)
 		return (FAILURE);
@@ -184,27 +184,27 @@ int	x_init(t_x_elements *x_elem, t_world *world)
 	return (SUCCESS);
 }
 
-void	draw_grid(t_image *image) //TEST
+void	draw_grid(t_minimap *minimap) //TEST
 {
 	int	x;
 	int	y;
 
 	y = 0;
-	while (y < image->size.y)
+	while (y < minimap->size.y)
 	{
 		x = 0;
-		while (x < image->size.x)
+		while (x < minimap->size.x)
 		{
 			{
-				if (y % image->cell_size == 0 || x % image->cell_size == 0)
-					xy_pixel_put(image, x, y, 0Xffffff);
+				if (y % minimap->cell_size == 0 || x % minimap->cell_size == 0)
+					xy_pixel_put(minimap, x, y, 0Xffffff);
 			}
 			x++;
 		}
 		y++;
 	}
 }
-void	draw_square(t_image *image, int *x, int *y, int color) //TEST
+void	draw_square(t_minimap *minimap, int *x, int *y, int color) //TEST
 {
 	int	square_x;
 	int	square_y;
@@ -214,13 +214,13 @@ void	draw_square(t_image *image, int *x, int *y, int color) //TEST
 	temp_y = *y;
 	temp_x = *x;
 	square_y = 0;
-	while (square_y < image->cell_size)
+	while (square_y < minimap->cell_size)
 	{
 		*x = temp_x;
 		square_x = 0;
-		while (square_x < image->cell_size)
+		while (square_x < minimap->cell_size)
 		{
-			xy_pixel_put(image, *x, *y, color);
+			xy_pixel_put(minimap, *x, *y, color);
 			*x = *x + 1;
 			square_x++;
 		}
@@ -230,24 +230,24 @@ void	draw_square(t_image *image, int *x, int *y, int color) //TEST
 	*y = temp_y;
 }
 
-void	place_player(t_image *image, t_world *world) //TEST
+void	place_player(t_minimap *minimap, t_world *world) //TEST
 {
 	int	player_pixel_x;
 	int	player_pixel_y;
 
-	player_pixel_x = world->player.x * image->cell_size;
-	player_pixel_y = world->player.y * image->cell_size;
-	xy_pixel_put(image, player_pixel_x, player_pixel_y, 0xff0000);
+	player_pixel_x = world->player.x * minimap->cell_size;
+	player_pixel_y = world->player.y * minimap->cell_size;
+	xy_pixel_put(minimap, player_pixel_x, player_pixel_y, 0xff0000);
 }
 
-void	erase_player(t_image *image, t_world *world) //TEST
+void	erase_player(t_minimap *minimap, t_world *world) //TEST
 {
 	int	player_pixel_x;
 	int	player_pixel_y;
 
-	player_pixel_x = world->player.x * image->cell_size;
-	player_pixel_y = world->player.y * image->cell_size;
-	xy_pixel_put(image, player_pixel_x, player_pixel_y, 0x000000);
+	player_pixel_x = world->player.x * minimap->cell_size;
+	player_pixel_y = world->player.y * minimap->cell_size;
+	xy_pixel_put(minimap, player_pixel_x, player_pixel_y, 0x000000);
 }
 
 void	draw_line(t_point start, t_point end, t_world *world, t_x_elements *x_elem) //TEST
@@ -410,16 +410,16 @@ t_ray_cast	cast_ray(t_world *world, double angle, int cell_size)
 	return (find_next_wall(&vars, world));
 }
 
-void	set_map_offset(t_world *world, t_image *image)
+void	set_map_offset(t_world *world, t_minimap *minimap)
 {
-	world->offest.x = (RES_X / 2) - double_to_pixel(world->player.x, image->cell_size);
-	world->offest.y = (RES_Y / 2) - double_to_pixel(world->player.y, image->cell_size);
+	world->offest.x = (RES_X / 2) - double_to_pixel(world->player.x, minimap->cell_size);
+	world->offest.y = (RES_Y / 2) - double_to_pixel(world->player.y, minimap->cell_size);
 }
 
-void	draw_map(t_image *image, t_world *world) //TEST
+void	draw_map(t_minimap *minimap, t_world *world) //TEST
 {
-	int	image_x;
-	int	image_y;
+	int	minimap_x;
+	int	minimap_y;
 	int	map_x;
 	int	map_y;
 	// static int drawed = 0;
@@ -427,24 +427,24 @@ void	draw_map(t_image *image, t_world *world) //TEST
 	// if (drawed == 0)
 	// {
 		map_y = 0;
-		image_y = 0;
-		image_x = 0;
+		minimap_y = 0;
+		minimap_x = 0;
 		while (map_y < world->map_y)
 		{
 			map_x = 0;
 			while (map_x < world->map_x)
 			{
 				if (world->map[map_y][map_x] == '1')
-					draw_square(image, &image_x, &image_y, 0x008000);
+					draw_square(minimap, &minimap_x, &minimap_y, 0x008000);
 				else
-					draw_square(image, &image_x, &image_y, 0x000000);
+					draw_square(minimap, &minimap_x, &minimap_y, 0x000000);
 				map_x++;
 			}
-			image_y += image->cell_size - 1;
+			minimap_y += minimap->cell_size - 1;
 			map_y++;
 		}
-		draw_grid(image);
-		// place_player(image, world);
+		draw_grid(minimap);
+		// place_player(minimap, world);
 		// drawed = 1;
 	// }
 }
@@ -454,6 +454,42 @@ typedef struct s_hook_args
 	t_world			*world;
 	t_x_elements	*x_elem;
 }				t_hook_args;
+
+typedef enum e_wall_sprite
+{
+	north,
+	south,
+	east,
+	west
+}			t_wall_sprite;
+
+t_wall_sprite	chose_wall_sprite(t_world *w, t_ray_cast *ray)
+{
+	if (w->player.x < ray->hit_pos.x && w->player.y < ray->hit_pos.y
+		&& ray->side_hit == vertical)
+		return (east);
+	else if (w->player.x < ray->hit_pos.x && w->player.y < ray->hit_pos.y
+		&& ray->side_hit == horizontal)
+		return (north);
+	if (w->player.x > ray->hit_pos.x && w->player.y < ray->hit_pos.y
+		&& ray->side_hit == vertical)
+		return (west);
+	else if (w->player.x > ray->hit_pos.x && w->player.y < ray->hit_pos.y
+		&& ray->side_hit == horizontal)
+		return (north);
+	if (w->player.x < ray->hit_pos.x && w->player.y > ray->hit_pos.y
+		&& ray->side_hit == vertical)
+		return (east);
+	else if (w->player.x < ray->hit_pos.x && w->player.y > ray->hit_pos.y
+		&& ray->side_hit == horizontal)
+		return (south);
+	if (w->player.x > ray->hit_pos.x && w->player.y > ray->hit_pos.y
+		&& ray->side_hit == vertical)
+		return (west);
+	else
+		return (south);
+}
+
 
 typedef enum e_camera_direction
 {
