@@ -6,11 +6,14 @@
 #include <X11/keysym.h>
 #include <math.h>
 
-#define RES_X 1200
-#define RES_Y 1200
+#define RES_X 1000
+#define RES_Y 1000
 
 #define FAILURE 1
 #define SUCCESS 0
+
+#define CEILING 0xC5E2FA
+#define FLOOR 0x795548
 
 typedef struct s_size
 {
@@ -24,7 +27,7 @@ typedef struct s_point
 	double	y;
 }				t_point;
 
-typedef struct s_minimap
+typedef struct s_image
 {
 	void	*img;
 	char	*img_addr;
@@ -33,17 +36,7 @@ typedef struct s_minimap
 	int		endian;
 	t_size	size;
 	int		cell_size;
-}				t_minimap;
-
-typedef struct s_scene
-{
-	void	*img;
-	char	*img_addr;
-	int		bppixel;
-	int		line_len;
-	int		endian;
-	t_size	size;
-}				t_scene;
+}				t_image;
 
 typedef struct s_wall
 {
@@ -55,8 +48,8 @@ typedef struct s_x_elements
 {
 	void		*display;
 	void		*win;
-	t_minimap	minimap;
-	t_scene		scene;
+	t_image		minimap;
+	t_image		scene;
 	int			refresh;
 }				t_x_elements;
 
@@ -66,6 +59,7 @@ typedef struct s_world
 	int		map_x;
 	int		map_y;
 	int		orientation;
+	double	player_angle;
 	t_point	player;
 	t_point	offest;
 	int		ceiling_color;
@@ -77,11 +71,11 @@ int	double_to_pixel(double world_point, int cell_size)
 	return (world_point * cell_size);
 }
 
-void	xy_pixel_put(t_minimap *minimap, int x, int y, int color)
+void	xy_pixel_put(t_image *image, int x, int y, int color)
 {
 	char	*pixel_pos;
 
-	pixel_pos = minimap->img_addr + (y * minimap->line_len + x * (minimap->bppixel / 8));
+	pixel_pos = image->img_addr + (y * image->line_len + x * (image->bppixel / 8));
 	*(int *)pixel_pos = color;
 }
 
@@ -175,6 +169,7 @@ int	init_minimap_image(t_world *world, t_x_elements *x_elem)
 
 int	init_scene_image(t_world *world, t_x_elements *x_elem)
 {
+	x_elem->scene.cell_size = set_cell_size();
 	x_elem->scene.size = (t_size){RES_X, RES_Y};
 	x_elem->scene.img = mlx_new_image(x_elem->display, x_elem->scene.size.x, x_elem->scene.size.y);
 	if (x_elem->scene.img == NULL)
@@ -211,7 +206,7 @@ int	x_init(t_x_elements *x_elem, t_world *world)
 	return (SUCCESS);
 }
 
-void	draw_grid(t_minimap *minimap) //TEST
+void	draw_grid(t_image *minimap) //TEST
 {
 	int	x;
 	int	y;
@@ -231,7 +226,7 @@ void	draw_grid(t_minimap *minimap) //TEST
 		y++;
 	}
 }
-void	draw_square(t_minimap *minimap, int *x, int *y, int color) //TEST
+void	draw_square(t_image *minimap, int *x, int *y, int color) //TEST
 {
 	int	square_x;
 	int	square_y;
@@ -257,7 +252,7 @@ void	draw_square(t_minimap *minimap, int *x, int *y, int color) //TEST
 	*y = temp_y;
 }
 
-void	place_player(t_minimap *minimap, t_world *world) //TEST
+void	place_player(t_image *minimap, t_world *world) //TEST
 {
 	int	player_pixel_x;
 	int	player_pixel_y;
@@ -267,7 +262,7 @@ void	place_player(t_minimap *minimap, t_world *world) //TEST
 	xy_pixel_put(minimap, player_pixel_x, player_pixel_y, 0xff0000);
 }
 
-void	erase_player(t_minimap *minimap, t_world *world) //TEST
+void	erase_player(t_image *minimap, t_world *world) //TEST
 {
 	int	player_pixel_x;
 	int	player_pixel_y;
@@ -437,13 +432,13 @@ t_ray_cast	cast_ray(t_world *world, double angle, int cell_size)
 	return (find_next_wall(&vars, world));
 }
 
-void	set_map_offset(t_world *world, t_minimap *minimap)
+void	set_map_offset(t_world *world, t_image *minimap)
 {
 	world->offest.x = (RES_X / 2) - double_to_pixel(world->player.x, minimap->cell_size);
 	world->offest.y = (RES_Y / 2) - double_to_pixel(world->player.y, minimap->cell_size);
 }
 
-void	draw_map(t_minimap *minimap, t_world *world) //TEST
+void	draw_map(t_image *minimap, t_world *world) //TEST
 {
 	int	minimap_x;
 	int	minimap_y;
@@ -490,33 +485,73 @@ typedef enum e_wall_sprite
 	west
 }			t_wall_sprite;
 
-t_wall_sprite	chose_wall_sprite(t_world *w, t_ray_cast *ray)
+t_wall_sprite	chose_wall_sprite(t_world *w, t_ray_cast ray)
 {
-	if (w->player.x < ray->hit_pos.x && w->player.y < ray->hit_pos.y
-		&& ray->side_hit == vertical)
+	if (w->player.x < ray.hit_pos.x && w->player.y < ray.hit_pos.y
+		&& ray.side_hit == vertical)
 		return (east);
-	else if (w->player.x < ray->hit_pos.x && w->player.y < ray->hit_pos.y
-		&& ray->side_hit == horizontal)
+	else if (w->player.x < ray.hit_pos.x && w->player.y < ray.hit_pos.y
+		&& ray.side_hit == horizontal)
 		return (north);
-	if (w->player.x > ray->hit_pos.x && w->player.y < ray->hit_pos.y
-		&& ray->side_hit == vertical)
+	if (w->player.x > ray.hit_pos.x && w->player.y < ray.hit_pos.y
+		&& ray.side_hit == vertical)
 		return (west);
-	else if (w->player.x > ray->hit_pos.x && w->player.y < ray->hit_pos.y
-		&& ray->side_hit == horizontal)
+	else if (w->player.x > ray.hit_pos.x && w->player.y < ray.hit_pos.y
+		&& ray.side_hit == horizontal)
 		return (north);
-	if (w->player.x < ray->hit_pos.x && w->player.y > ray->hit_pos.y
-		&& ray->side_hit == vertical)
+	if (w->player.x < ray.hit_pos.x && w->player.y > ray.hit_pos.y
+		&& ray.side_hit == vertical)
 		return (east);
-	else if (w->player.x < ray->hit_pos.x && w->player.y > ray->hit_pos.y
-		&& ray->side_hit == horizontal)
+	else if (w->player.x < ray.hit_pos.x && w->player.y > ray.hit_pos.y
+		&& ray.side_hit == horizontal)
 		return (south);
-	if (w->player.x > ray->hit_pos.x && w->player.y > ray->hit_pos.y
-		&& ray->side_hit == vertical)
+	if (w->player.x > ray.hit_pos.x && w->player.y > ray.hit_pos.y
+		&& ray.side_hit == vertical)
 		return (west);
 	else
 		return (south);
 }
 
+/* EASY MODE */
+void	draw_pixel_column_on_scene(t_image *scene, t_wall_sprite sprite, t_ray_cast ray, int image_x)
+{
+	int	wall_color;
+	int	wall_len;
+	int	floor_ceiling_len;
+	int	image_y;
+
+	if (sprite == north)
+		wall_color = 0x3949AB;
+	if (sprite == south)
+		wall_color = 0xFFCA28;
+	if (sprite == east)
+		wall_color = 0x388E3C;
+	if (sprite == west)
+		wall_color = 0xF44336;
+
+	wall_len = (int)(RES_Y / ray.ray_len);
+	if (RES_Y - wall_len <= 0)
+		floor_ceiling_len = 0;
+	else
+		floor_ceiling_len = (RES_Y - wall_len) / 2;
+
+	image_y = 0;
+	while (image_y < RES_Y && image_y < floor_ceiling_len / 2)
+	{
+		xy_pixel_put(scene, image_x, image_y, CEILING);
+		image_y++;
+	}
+	while (image_y < RES_Y && image_y < wall_len + floor_ceiling_len / 2)
+	{
+		xy_pixel_put(scene, image_x, image_y, wall_color);
+		image_y++;
+	}
+	while (image_y < RES_Y)
+	{
+		xy_pixel_put(scene, image_x, image_y, FLOOR);
+		image_y++;
+	}
+}
 
 typedef enum e_camera_direction
 {
@@ -571,27 +606,44 @@ double	set_ray_angle(t_point camera_limit)
 	return (atan2(camera_limit.y - (RES_X / 2), camera_limit.x - (RES_X / 2)));
 }
 
-void	capture_scene(t_world *world, t_x_elements *x_elements)
+void	fish_eye_correction(t_ray_cast *ray, double ray_angle, double player_angle)
+{
+	double angle_diff;
+
+	angle_diff = ray_angle - player_angle;
+	ray->ray_len = ray->ray_len * cos(angle_diff);
+}
+
+void	capture_scene(t_world *world, t_x_elements *x_elem)
 {
 	int					i;
 	t_camera_direction	direction;
 	t_point				camera_limit;
 	double				ray_angle;
 	int					temp_orientation;
+	t_wall_sprite		sprite;
+	t_ray_cast			ray;
 
 	temp_orientation = world->orientation;
 	i = 0;
+	world->player_angle = set_ray_angle(set_left_camera_limit(world->orientation + RES_X / 2,
+			set_camera_direction(world->orientation + RES_X / 2)));
+	printf("%f\n", world->player_angle);
 	while (i <= RES_X)
 	{
 		if (temp_orientation == RES_X * 4)
-		temp_orientation = 0;
+			temp_orientation = 0;
 		direction = set_camera_direction(temp_orientation);
 		while (i <= RES_X)
 		{
 			camera_limit = set_left_camera_limit(temp_orientation, direction);
 			ray_angle = set_ray_angle(camera_limit);
-			printf("x: %f y: %f | direction: %u | angle: %f\n", camera_limit.x, camera_limit.y, direction, ray_angle);
-			draw_line(world->player, cast_ray(world, ray_angle, x_elements->minimap.cell_size).hit_pos, world, x_elements);
+			ray = cast_ray(world, ray_angle, x_elem->minimap.cell_size);
+			fish_eye_correction(&ray, ray_angle, world->player_angle);
+			sprite = chose_wall_sprite(world, ray);
+			// printf("x: %f y: %f | direction: %u | angle: %f\n", camera_limit.x, camera_limit.y, direction, ray_angle);
+			// draw_line(world->player, cast_ray(world, ray_angle, x_elem->minimap.cell_size).hit_pos, world, x_elem);
+			draw_pixel_column_on_scene(&x_elem->scene, sprite, ray, i);
 			i++;
 			temp_orientation++;
 			if ((temp_orientation) % RES_X == 0)
@@ -612,19 +664,20 @@ int	update_minimap(t_hook_args *args) //TEST
 	// draw_map(args->x_elem->minimap, args->world);
 	if (args->x_elem->refresh)
 	{
-		set_map_offset(args->world, &args->x_elem->minimap);
-		mlx_clear_window(args->x_elem->display, args->x_elem->win);
-		mlx_put_image_to_window(args->x_elem->display,
-			args->x_elem->win,
-			args->x_elem->minimap.img,
-			args->world->offest.x,
-			args->world->offest.y);
-		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2 + 1, RES_Y / 2, 0xff0000);
-		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2 - 1, RES_Y / 2, 0xff0000);
-		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2 + 1, 0xff0000);
-		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2 - 1, 0xff0000);
-		mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2, 0xff0000);
+		// set_map_offset(args->world, &args->x_elem->minimap);
+		// mlx_clear_window(args->x_elem->display, args->x_elem->win);
+		// mlx_put_image_to_window(args->x_elem->display,
+		// 	args->x_elem->win,
+		// 	args->x_elem->minimap.img,
+		// 	args->world->offest.x,
+		// 	args->world->offest.y);
+		// mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2 + 1, RES_Y / 2, 0xff0000);
+		// mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2 - 1, RES_Y / 2, 0xff0000);
+		// mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2 + 1, 0xff0000);
+		// mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2 - 1, 0xff0000);
+		// mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2, 0xff0000);
 		capture_scene(args->world, args->x_elem);
+		mlx_put_image_to_window(args->x_elem->display, args->x_elem->win, args->x_elem->scene.img, 0, 0);
 		args->x_elem->refresh = 0;
 	}
 
@@ -702,7 +755,7 @@ int	main(void) //TEST
 
 	hook_args.world = &world;
 	hook_args.x_elem = &x_elem;
-	draw_map(&x_elem.minimap, &world);
+	// draw_map(&x_elem.minimap, &world);
 	mlx_key_hook(x_elem.win, key_hook, &hook_args);
 	// capture_scene(&world, &x_elem);
 	mlx_loop_hook(x_elem.display, update_minimap, &hook_args);
