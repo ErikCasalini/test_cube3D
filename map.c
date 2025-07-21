@@ -12,8 +12,11 @@
 #define FAILURE 1
 #define SUCCESS 0
 
-#define CEILING 0xC5E2FA
+// 0xC5E2FA
+#define CEILING 0x795548
 #define FLOOR 0x795548
+
+#define VEW_FIELD (3.14159265358979323846 / 3)
 
 typedef struct s_size
 {
@@ -58,7 +61,8 @@ typedef struct s_world
 	char	**map;
 	int		map_x;
 	int		map_y;
-	int		orientation;
+	double	orientation;
+	double	vew_angle_step;
 	double	player_angle;
 	t_point	player;
 	t_point	offest;
@@ -151,9 +155,10 @@ void	init_world(t_world *world) //TEST
 	world->map = alloc_map();
 	world->map_x = 50;
 	world->map_y = 50;
-	world->player.x = 10.5;
+	world->player.x = 1.5;
 	world->orientation = 0;
-	world->player.y = 10.5;
+	world->vew_angle_step = VEW_FIELD / RES_X;
+	world->player.y = 1.5;
 }
 
 int	init_minimap_image(t_world *world, t_x_elements *x_elem)
@@ -553,102 +558,25 @@ void	draw_pixel_column_on_scene(t_image *scene, t_wall_sprite sprite, t_ray_cast
 	}
 }
 
-typedef enum e_camera_direction
-{
-	up,
-	right,
-	down,
-	left
-}			t_camera_direction;
-
-t_camera_direction	set_camera_direction(int orientation)
-{
-	if (orientation < RES_X)
-		return (up);
-	if (orientation < RES_X * 2)
-		return(right);
-	if (orientation < RES_X * 3)
-		return (down);
-	else
-		return (left);
-
-}
-
-t_point	set_left_camera_limit(int orientation, t_camera_direction direction)
-{
-	t_point camera_limit;
-
-	if (direction == up)
-	{
-		camera_limit.x = 0;
-		camera_limit.y = orientation;
-	}
-	else if (direction == right)
-	{
-		camera_limit.x = orientation - RES_X;
-		camera_limit.y = RES_X;
-	}
-	else if (direction == down)
-	{
-		camera_limit.x = RES_X;
-		camera_limit.y = RES_X - (orientation - (RES_X * 2));
-	}
-	else
-	{
-		camera_limit.x = RES_X - (orientation - (RES_X * 3));
-		camera_limit.y = 0;
-	}
-	return (camera_limit);
-}
-
-double	set_ray_angle(t_point camera_limit)
-{
-	return (atan2(camera_limit.y - (RES_X / 2), camera_limit.x - (RES_X / 2)));
-}
-
-void	fish_eye_correction(t_ray_cast *ray, double ray_angle, double player_angle)
-{
-	double angle_diff;
-
-	angle_diff = ray_angle - player_angle;
-	ray->ray_len = ray->ray_len * cos(angle_diff);
-}
-
 void	capture_scene(t_world *world, t_x_elements *x_elem)
 {
-	int					i;
-	t_camera_direction	direction;
-	t_point				camera_limit;
-	double				ray_angle;
-	int					temp_orientation;
-	t_wall_sprite		sprite;
-	t_ray_cast			ray;
+	int				i;
+	double			angle_offset;
+	double			ray_angle;
+	t_ray_cast		ray;
+	t_wall_sprite	sprite;
 
-	temp_orientation = world->orientation;
 	i = 0;
-	world->player_angle = set_ray_angle(set_left_camera_limit(world->orientation + RES_X / 2,
-			set_camera_direction(world->orientation + RES_X / 2)));
-	printf("%f\n", world->player_angle);
+	angle_offset = -(VEW_FIELD / 2);
 	while (i <= RES_X)
 	{
-		if (temp_orientation == RES_X * 4)
-			temp_orientation = 0;
-		direction = set_camera_direction(temp_orientation);
-		while (i <= RES_X)
-		{
-			camera_limit = set_left_camera_limit(temp_orientation, direction);
-			ray_angle = set_ray_angle(camera_limit);
-			ray = cast_ray(world, ray_angle, x_elem->minimap.cell_size);
-			fish_eye_correction(&ray, ray_angle, world->player_angle);
-			sprite = chose_wall_sprite(world, ray);
-			// printf("x: %f y: %f | direction: %u | angle: %f\n", camera_limit.x, camera_limit.y, direction, ray_angle);
-			// draw_line(world->player, cast_ray(world, ray_angle, x_elem->minimap.cell_size).hit_pos, world, x_elem);
-			draw_pixel_column_on_scene(&x_elem->scene, sprite, ray, i);
-			i++;
-			temp_orientation++;
-			if ((temp_orientation) % RES_X == 0)
-				break ;
-		}
+		ray_angle =	world->orientation + angle_offset;
+		ray = cast_ray(world, ray_angle, x_elem->scene.cell_size);
+		ray.ray_len *= cos(ray_angle - world->orientation);
+		sprite = chose_wall_sprite(world, ray);
+		draw_pixel_column_on_scene(&x_elem->scene, sprite, ray, i);
+		angle_offset += world->vew_angle_step;
+		i++;
 	}
 }
 
@@ -657,14 +585,13 @@ int	update_minimap(t_hook_args *args) //TEST
 	// static int x = 0;
 	// static int y = 0;
 
-	// set_map_offset(args->world, args->x_elem->minimap);
+	// set_map_offset(args->world, &args->x_elem->minimap);
 	// place_player(args->x_elem->minimap, args->world);
 	// erase_player(args->x_elem->minimap, args->world);
 	// place_player(args->x_elem->minimap, args->world);
 	// draw_map(args->x_elem->minimap, args->world);
 	if (args->x_elem->refresh)
 	{
-		// set_map_offset(args->world, &args->x_elem->minimap);
 		// mlx_clear_window(args->x_elem->display, args->x_elem->win);
 		// mlx_put_image_to_window(args->x_elem->display,
 		// 	args->x_elem->win,
@@ -700,42 +627,37 @@ int	key_hook(int keycode, t_hook_args *args) //TEST
 	if (keycode == XK_Right)
 	{
 		// erase_player(args->x_elem->minimap, args->world);
-		// args->world->offest_x -= 0.1;
+		args->world->offest.x -= 0.1 * (RES_X / 10);
 		args->world->player.x += 0.3;
 	}
 	if (keycode == XK_Left)
 	{
 		// erase_player(args->x_elem->minimap, args->world);
-		// args->world->offest_x += 0.1;
+		args->world->offest.x += 0.1 * (RES_X / 10);
 		args->world->player.x -= 0.3;
 	}
 	if (keycode == XK_Up)
 	{
 		// erase_player(args->x_elem->minimap, args->world);
-		// args->world->offest_y += 0.1;
+		args->world->offest.y += 0.1 * (RES_Y / 10);
 		args->world->player.y -= 0.3;
 	}
 	if (keycode == XK_Down)
 	{
 		// erase_player(args->x_elem->minimap, args->world);
-		// args->world->offest_y -= 0.1;
+		args->world->offest.y -= 0.1 * (RES_Y / 10);
 		args->world->player.y += 0.3;
 	}
 	if (keycode == XK_a)
 	{
-		if (args->world->orientation == 0)
-			args->world->orientation = (RES_X * 4) - 1;
-		else
-			args->world->orientation -= (RES_X / 10);
+		args->world->orientation -= args->world->vew_angle_step * (RES_X / 10);
 	}
 	if (keycode == XK_d)
 	{
-		if (args->world->orientation == (RES_X * 4) - 1)
-			args->world->orientation = 0;
-		else
-			args->world->orientation += (RES_X / 10);
+		args->world->orientation += args->world->vew_angle_step * (RES_X / 10);
 	}
-	printf("orientation: %d\n", args->world->orientation);
+	// printf("orientation: %d\n", args->world->orientation);
+	// printf("offset x: %f | offset y: %f\n", args->world->offest.x, args->world->offest.y);
 	args->x_elem->refresh = 1;
 	return (1);
 }
@@ -755,7 +677,7 @@ int	main(void) //TEST
 
 	hook_args.world = &world;
 	hook_args.x_elem = &x_elem;
-	// draw_map(&x_elem.minimap, &world);
+	draw_map(&x_elem.minimap, &world);
 	mlx_key_hook(x_elem.win, key_hook, &hook_args);
 	// capture_scene(&world, &x_elem);
 	mlx_loop_hook(x_elem.display, update_minimap, &hook_args);
