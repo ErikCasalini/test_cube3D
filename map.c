@@ -13,10 +13,11 @@
 #define SUCCESS 0
 
 // 0xC5E2FA
-#define CEILING 0x795548
+#define CEILING 0xC5E2FA
 #define FLOOR 0x795548
 
 #define VEW_FIELD (3.14159265358979323846 / 3)
+// #define VEW_FIELD 50 * (3.14159265358979323846 / 180)
 
 typedef struct s_size
 {
@@ -544,12 +545,12 @@ void	draw_pixel_column_on_scene(t_image *scene, t_wall_sprite sprite, t_ray_cast
 		floor_ceiling_len = (RES_Y - wall_len) / 2;
 
 	image_y = 0;
-	while (image_y < RES_Y && image_y < floor_ceiling_len / 2)
+	while (image_y < RES_Y && image_y < floor_ceiling_len)
 	{
 		xy_pixel_put(scene, image_x, image_y, CEILING);
 		image_y++;
 	}
-	while (image_y < RES_Y && image_y < wall_len + floor_ceiling_len / 2)
+	while (image_y < RES_Y && image_y < wall_len + floor_ceiling_len)
 	{
 		xy_pixel_put(scene, image_x, image_y, wall_color);
 		image_y++;
