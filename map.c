@@ -135,6 +135,9 @@ char **alloc_map(void) //TEST
 	map[2][4] = '1';
 	map[5][3] = '1';
 	map[5][5] = '1';
+	// map[3][2] = '1';
+	// map[3][3] = '1';
+	// map[3][4] = '1';
 	return (map);
 }
 
@@ -156,7 +159,7 @@ void	init_world(t_world *world) //TEST
 	world->map_x = 50;
 	world->map_y = 50;
 	world->player.x = 1.5;
-	world->orientation = 0;
+	world->orientation = 3.14159265358979323846 / 2;
 	world->vew_angle_step = VEW_FIELD / RES_X;
 	world->player.y = 1.5;
 }
@@ -419,7 +422,7 @@ t_ray_cast	cast_ray(t_world *world, double angle, int cell_size)
 	vars.cell_y = (int)world->player.y;
 	/* On détermine la direction du rayon en se basant sur l'angle */
 	vars.ray_x_dir = cos(angle);
-	vars.ray_y_dir = -sin(angle);
+	vars.ray_y_dir = sin(angle);
 	/* FAUT PROTEGER SI JAMAIS ray_dir = 0 */
 	/* On détermine le delta de la distance parcourrue par le rayon en x et en y */
 	if (vars.ray_x_dir == 0)
@@ -497,24 +500,24 @@ t_wall_sprite	chose_wall_sprite(t_world *w, t_ray_cast ray)
 		return (east);
 	else if (w->player.x < ray.hit_pos.x && w->player.y < ray.hit_pos.y
 		&& ray.side_hit == horizontal)
-		return (north);
+		return (south);
 	if (w->player.x > ray.hit_pos.x && w->player.y < ray.hit_pos.y
 		&& ray.side_hit == vertical)
 		return (west);
 	else if (w->player.x > ray.hit_pos.x && w->player.y < ray.hit_pos.y
 		&& ray.side_hit == horizontal)
-		return (north);
+		return (south);
 	if (w->player.x < ray.hit_pos.x && w->player.y > ray.hit_pos.y
 		&& ray.side_hit == vertical)
 		return (east);
 	else if (w->player.x < ray.hit_pos.x && w->player.y > ray.hit_pos.y
 		&& ray.side_hit == horizontal)
-		return (south);
+		return (north);
 	if (w->player.x > ray.hit_pos.x && w->player.y > ray.hit_pos.y
 		&& ray.side_hit == vertical)
 		return (west);
 	else
-		return (south);
+		return (north);
 }
 
 /* EASY MODE */
@@ -605,6 +608,7 @@ int	update_minimap(t_hook_args *args) //TEST
 		// mlx_pixel_put(args->x_elem->display, args->x_elem->win, RES_X / 2, RES_Y / 2, 0xff0000);
 		capture_scene(args->world, args->x_elem);
 		mlx_put_image_to_window(args->x_elem->display, args->x_elem->win, args->x_elem->scene.img, 0, 0);
+		printf("player x: %f | player y: %f\n", args->world->player.x, args->world->player.y);
 		args->x_elem->refresh = 0;
 	}
 
@@ -627,25 +631,25 @@ int	key_hook(int keycode, t_hook_args *args) //TEST
 	if (keycode == XK_Right)
 	{
 		// erase_player(args->x_elem->minimap, args->world);
-		args->world->offest.x -= 0.1 * (RES_X / 10);
+		// args->world->offest.x -= 0.1 * (RES_X / 10);
 		args->world->player.x += 0.3;
 	}
 	if (keycode == XK_Left)
 	{
 		// erase_player(args->x_elem->minimap, args->world);
-		args->world->offest.x += 0.1 * (RES_X / 10);
+		// args->world->offest.x += 0.1 * (RES_X / 10);
 		args->world->player.x -= 0.3;
 	}
 	if (keycode == XK_Up)
 	{
 		// erase_player(args->x_elem->minimap, args->world);
-		args->world->offest.y += 0.1 * (RES_Y / 10);
+		// args->world->offest.y += 0.1 * (RES_Y / 10);
 		args->world->player.y -= 0.3;
 	}
 	if (keycode == XK_Down)
 	{
 		// erase_player(args->x_elem->minimap, args->world);
-		args->world->offest.y -= 0.1 * (RES_Y / 10);
+		// args->world->offest.y -= 0.1 * (RES_Y / 10);
 		args->world->player.y += 0.3;
 	}
 	if (keycode == XK_a)
